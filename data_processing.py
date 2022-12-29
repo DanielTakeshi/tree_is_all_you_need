@@ -6,6 +6,8 @@ from queue import LifoQueue, Queue
 from scipy.spatial.transform import Rotation
 import torch
 from torch_geometric.data import Data
+from os.path import join
+
 
 def remove_duplicate_nodes(edges, init_positions, final_positions, X_force):
     tree_representative = init_positions[0]
@@ -313,10 +315,12 @@ def rotate_augment(X_edges, X_force, X_pos, Y_pos, rotate_augment_factor=5, stdd
 
     return new_X_edges, new_X_force, new_X_pos, new_Y_pos
 
-def load_npy(data_dir, sim=True):
-    """Loads the numpy datasets.
+def load_npy(data_dir, sim=True, trial_num=-1):
+    """Loads the numpy datasets, now with updated dataset from the Google Site.
 
-    TODO(daniel) -- redoing this but with updated data.
+    Data for real saves as f'X_edge_def{num}.npy' where 'num' is passed in as new arg.
+    There's also both final_X and X_total conventions, same for Y and the force.
+    EXCEPT for trial 1, where the force is saved in another way.
     """
     def _debug_shapes():
         print(f'  X_edges: {X_edges.shape}')
@@ -327,11 +331,11 @@ def load_npy(data_dir, sim=True):
     if sim:
         # Load npy files from dataset_dir. A shortcut to 'sample_1_push' shared folder has been added to 'My Drive'
         #X_stiffness_damping = np.load(os.path.join(data_dir, 'X_coeff_stiff_damp.npy'))
-        X_edges = np.load(os.path.join(data_dir, 'X_edge_def.npy'))
-        X_force = np.load(os.path.join(data_dir, 'final_F.npy'))
-        X_pos = np.load(os.path.join(data_dir, 'final_X.npy'))
-        Y_pos = np.load(os.path.join(data_dir, 'final_Y.npy'))
-        print('Loaded raw numpy data. Debugging shapes:')
+        X_edges = np.load(join(data_dir, 'X_edge_def.npy'))
+        X_force = np.load(join(data_dir, 'final_F.npy'))
+        X_pos = np.load(join(data_dir, 'final_X.npy'))
+        Y_pos = np.load(join(data_dir, 'final_Y.npy'))
+        print(f'\nTrial {trial_num}, loaded raw numpy data (SIM). Shapes:')
         _debug_shapes()
 
         # Truncate node orientations and tranpose to shape (num_graphs, num_nodes, n_features)
@@ -339,11 +343,26 @@ def load_npy(data_dir, sim=True):
         Y_pos = Y_pos[:, :7, :].transpose((0,2,1))
         X_force = X_force.transpose((0,2,1))
     else:
-        X_edges = np.load(os.path.join(data_dir, 'X_edge_def.npy'))
-        X_force = np.load(os.path.join(data_dir, 'final_F.npy'))
-        X_pos = np.load(os.path.join(data_dir, 'final_X.npy'), allow_pickle=True)
-        Y_pos = np.load(os.path.join(data_dir, 'final_Y.npy'), allow_pickle=True)
-        print('Loaded raw numpy data. Debugging shapes:')
+        # Real data. See notes above about file naming.
+        _key = 'final'
+        if not os.path.exists( join(data_dir, 'final_X.npy')):
+            assert os.path.exists( join(data_dir, 'X_total.npy'))
+            _key = 'total'
+
+        X_edges = np.load(join(data_dir, f'X_edge_def{trial_num}.npy'))
+        if _key == 'final':
+            X_force = np.load(join(data_dir, 'final_F.npy'))
+            X_pos = np.load(join(data_dir, 'final_X.npy'), allow_pickle=True)
+            Y_pos = np.load(join(data_dir, 'final_Y.npy'), allow_pickle=True)
+        elif _key == 'total':
+            # Unfortunately we need a special case.
+            if trial_num == 1:
+                X_force = np.load(join(data_dir, 'F_vector_final.npy'))
+            else:
+                X_force = np.load(join(data_dir, 'F_total.npy'))
+            X_pos = np.load(join(data_dir, 'X_total.npy'), allow_pickle=True)
+            Y_pos = np.load(join(data_dir, 'Y_total.npy'), allow_pickle=True)
+        print(f'\nTrial {trial_num}, loaded raw numpy data (REAL). Shapes:')
         _debug_shapes()
 
         invalid_graphs = []
@@ -365,7 +384,7 @@ def load_npy(data_dir, sim=True):
         X_pos = X_pos.reshape(Y_pos.shape[0],Y_pos.shape[1],Y_pos.shape[2])
         X_force = X_force.transpose((0,2,1))
 
-    print('Finished loading numpy data, updated shapes:')
+    print('Finished processing numpy data, updated shapes:')
     _debug_shapes()
     return X_edges, X_force, X_pos, Y_pos
 
