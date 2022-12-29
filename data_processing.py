@@ -313,25 +313,38 @@ def rotate_augment(X_edges, X_force, X_pos, Y_pos, rotate_augment_factor=5, stdd
 
     return new_X_edges, new_X_force, new_X_pos, new_Y_pos
 
-
 def load_npy(data_dir, sim=True):
+    """Loads the numpy datasets.
+
+    TODO(daniel) -- redoing this but with updated data.
+    """
+    def _debug_shapes():
+        print(f'  X_edges: {X_edges.shape}')
+        print(f'  X_force: {X_force.shape}')
+        print(f'  X_pos:   {X_pos.shape}')
+        print(f'  Y_pos:   {Y_pos.shape}')
+
     if sim:
         # Load npy files from dataset_dir. A shortcut to 'sample_1_push' shared folder has been added to 'My Drive'
         #X_stiffness_damping = np.load(os.path.join(data_dir, 'X_coeff_stiff_damp.npy'))
         X_edges = np.load(os.path.join(data_dir, 'X_edge_def.npy'))
-        X_force = np.load(os.path.join(data_dir, 'X_force_applied.npy'))
-        X_pos = np.load(os.path.join(data_dir, 'X_vertex_init_pose.npy'))
-        Y_pos = np.load(os.path.join(data_dir, 'Y_vertex_final_pos.npy'))
+        X_force = np.load(os.path.join(data_dir, 'final_F.npy'))
+        X_pos = np.load(os.path.join(data_dir, 'final_X.npy'))
+        Y_pos = np.load(os.path.join(data_dir, 'final_Y.npy'))
+        print('Loaded raw numpy data. Debugging shapes:')
+        _debug_shapes()
+
         # Truncate node orientations and tranpose to shape (num_graphs, num_nodes, n_features)
         X_pos = X_pos[:, :7, :].transpose((0,2,1))
         Y_pos = Y_pos[:, :7, :].transpose((0,2,1))
         X_force = X_force.transpose((0,2,1))
     else:
-        # NOTE(daniel): not tested yet.
         X_edges = np.load(os.path.join(data_dir, 'X_edge_def.npy'))
         X_force = np.load(os.path.join(data_dir, 'final_F.npy'))
         X_pos = np.load(os.path.join(data_dir, 'final_X.npy'), allow_pickle=True)
         Y_pos = np.load(os.path.join(data_dir, 'final_Y.npy'), allow_pickle=True)
+        print('Loaded raw numpy data. Debugging shapes:')
+        _debug_shapes()
 
         invalid_graphs = []
         for i, graph in enumerate(X_pos):
@@ -351,6 +364,9 @@ def load_npy(data_dir, sim=True):
         X_pos = np.array(X_pos_list)
         X_pos = X_pos.reshape(Y_pos.shape[0],Y_pos.shape[1],Y_pos.shape[2])
         X_force = X_force.transpose((0,2,1))
+
+    print('Finished loading numpy data, updated shapes:')
+    _debug_shapes()
     return X_edges, X_force, X_pos, Y_pos
 
 def _make_dataset(X_edges, X_force, X_pos, Y_pos,

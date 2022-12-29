@@ -11,7 +11,7 @@ class GCNResidualBlock(torch.nn.Module):
         super().__init__()
         self.gcn_conv = GCNConv(hidden_size, hidden_size) # (hidden, num_out_features_per_node)
         self.linear = torch.nn.Linear(hidden_size, hidden_size)
-  
+
     def forward(self, x, edge_index):
         x_block = self.gcn_conv(x, edge_index)
         x_block = F.relu(x_block)
@@ -34,11 +34,11 @@ class GCN(torch.nn.Module):
         self.block1 = GCNResidualBlock(hidden_size)
         self.bn1 = torch.nn.BatchNorm1d(hidden_size)
         self.do1 = torch.nn.Dropout(p)
-        
+
         self.block2 = GCNResidualBlock(hidden_size)
         self.bn2 = torch.nn.BatchNorm1d(hidden_size)
         self.do2 = torch.nn.Dropout(p)
-        
+
         self.block3 = GCNResidualBlock(hidden_size)
         self.bn3 = torch.nn.BatchNorm1d(hidden_size)
         self.do3 = torch.nn.Dropout(p)
@@ -61,24 +61,24 @@ class GCN(torch.nn.Module):
         x = self.block1(x, edge_index)
         x = self.bn1(x)
         x = self.do1(x)
-        
+
         x = self.block2(x, edge_index)
         x = self.bn2(x)
         x = self.do2(x)
-        
+
         x = self.block3(x, edge_index)
         x = self.bn3(x)
         x = self.do3(x)
-        
+
         x = self.block4(x, edge_index)
         x = self.bn4(x)
         x = self.do4(x)
-        
+
         x = self.block5(x, edge_index)
         x = self.bn5(x)
         x = self.do5(x)
-                
-        x = self.out(x)        
+
+        x = self.out(x)
         return x
 
 
@@ -111,7 +111,7 @@ class MLP(torch.nn.Module):
 
 
 class InteractionNetwork(MessagePassing):
-    """Interaction Network as proposed in this paper: 
+    """Interaction Network as proposed in this paper:
     https://proceedings.neurips.cc/paper/2016/hash/3147da8ab4a0437c15ef51a5cc7f2dc4-Abstract.html"""
     def __init__(self, hidden_size, layers):
         super().__init__()
@@ -133,6 +133,7 @@ class InteractionNetwork(MessagePassing):
     def aggregate(self, inputs, index, dim_size=None):
         out = torch_scatter.scatter(inputs, index, dim=self.node_dim, dim_size=dim_size, reduce="sum")
         return (inputs, out)
+
 
 class LearnedSimulator(torch.nn.Module):
     """Graph Network-based Simulators(GNS)"""

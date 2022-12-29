@@ -9,43 +9,72 @@ import copy
 from model import LearnedSimulator
 import functional
 from tqdm import tqdm
+import argparse
+
+PARAMS_REAL = {
+    'run_name': 'real_entire_dataset',
+    'dataset_dir': ['data/10Nodes_by_tree/trial', 'data/20Nodes_by_tree/trial'],
+    'num_trees_per_dir': [27,43],
+    'simulated_dataset': False,
+    'num_epochs': 700,
+    'batch_size': 512,
+    'lr': 2e-3,
+    'train_validation_split': 0.9,
+    'remove_duplicates': True
+}
+
+PARAMS_SIM = {
+    'run_name': 'sim_entire_dataset',
+    'dataset_dir': ['data/tree_dataset/trial'],
+    'num_trees_per_dir': [10],
+    'simulated_dataset': True,
+    'num_epochs': 700,
+    'batch_size': 512,
+    'lr': 2e-3,
+    'train_validation_split': 0.9,
+    'remove_duplicates': True
+}
+
+
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
 if __name__ == '__main__':
-    seed = 0
-    params = {
-        'run_name': 'sim_entire_dataset',
-        'dataset_dir': ['data/tree_dataset/trial'],
-        'num_trees_per_dir': [10],
-        'simulated_dataset': True,
-        'seed': 0,
-        'num_epochs': 700,
-        'batch_size': 512,
-        'lr': 2e-3,
-        'train_validation_split': 0.9,
-        'remove_duplicates': True
-    }
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--data', type=str, default='sim')
+    parser.add_argument('--seed', type=int, default=0)
+    args = parser.parse_args()
+
+    # Bells and whistles.
+    params = PARAMS_SIM if args.data == 'sim' else PARAMS_REAL
+    params['seed'] = args.seed
     output_dir = 'output/{}'.format(params['run_name'])
     os.makedirs(output_dir, exist_ok=True)
-
     np.random.seed(params['seed'])
     random.seed(params['seed'])
 
-
+    # X and Y mean vertex positions before and after force is applied.
     X_force_list = []
     X_pos_list = []
     Y_pos_list = []
     train_dataset = []
     val_dataset = []
+
+    # NOTE(daniel): real data starts from trial1 instead of trial0.
+    offset = 0 if args.data == 'sim' else 1
+
     for i_dir, dataset_dir in enumerate(params['dataset_dir']):
         train_val_split = int(params['num_trees_per_dir'][i_dir]*params['train_validation_split'])
-        for i in tqdm(range(1, params['num_trees_per_dir'][i_dir]+1)):
+
+        for i in tqdm(range(offset, params['num_trees_per_dir'][i_dir] + offset)):
             d = dataset_dir+str(i)
             X_edges, X_force, X_pos, Y_pos = data_processing.load_npy(d, params['simulated_dataset'])
             if params['remove_duplicates']:
-                X_edges, X_force, X_pos, Y_pos = data_processing.remove_duplicate_nodes(X_edges, X_pos, Y_pos, X_force)
+                X_edges, X_force, X_pos, Y_pos = data_processing.remove_duplicate_nodes(
+                        X_edges, X_pos, Y_pos, X_force)
 
-            if i<train_val_split:
+            if i < train_val_split:
                 train_dataset += data_processing.make_dataset(X_edges, X_force, X_pos, Y_pos, i_dir,
                                 make_directed=True, prune_augmented=False, rotate_augmented=False)
             else:
