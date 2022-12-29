@@ -61,7 +61,7 @@ if __name__ == '__main__':
     np.random.seed(params['seed'])
     random.seed(params['seed'])
 
-    # X and Y mean vertex positions before and after force is applied.
+    # X and Y have tree node positions and quaternions before and after force is applied.
     X_force_list = []
     X_pos_list = []
     Y_pos_list = []

@@ -129,9 +129,10 @@ def get_trunk(parents, leaf, root=0):
     return trunk
 
 def make_directed_and_prune_augment(X_edges, X_force, X_pos, Y_pos, make_directed=True, prune_augmented=True):
-    """
-    Make the dataset edge connections directed and augment the dataset by random pruning.
+    """Make the dataset edge connections directed and augment the dataset by random pruning.
+
     Note that this function assumes the input coming from graphs in same topology and same node ordering.
+
     :param X_edges: np.ndarray (n_edges, 2); the edge connection of the graph.
     :param X_force: np.ndarray (n_graphs, n_nodes, 3); the force applied on the graph.
     :param X_pos: np.ndarray (n_graphs, n_nodes, 3); the initial pose of the graph.
@@ -139,6 +140,7 @@ def make_directed_and_prune_augment(X_edges, X_force, X_pos, Y_pos, make_directe
     :param make_directed: bool; whether augment data by making it directed. If this is set to False, the
         graph is constructed as a undirected graph.
     :param prune_augmented: bool; whether augment the data by random pruning.
+
     :return:
         new_X_edges: np.ndarray (n_graphs, n_edges, 2); the edge connection of the augmented graph.
         new_X_force: np.ndarray (n_graphs, n_nodes, 3); the force applied on the graph.
@@ -315,7 +317,7 @@ def rotate_augment(X_edges, X_force, X_pos, Y_pos, rotate_augment_factor=5, stdd
 
     return new_X_edges, new_X_force, new_X_pos, new_Y_pos
 
-def load_npy(data_dir, sim=True, trial_num=-1):
+def load_npy(data_dir, sim=True, trial_num=-1, debug=False):
     """Loads the numpy datasets, now with updated dataset from the Google Site.
 
     Data for real saves as f'X_edge_def{num}.npy' where 'num' is passed in as new arg.
@@ -334,6 +336,14 @@ def load_npy(data_dir, sim=True, trial_num=-1):
     By 'num_push' we mean the number of separate individual pushes by the robot. The
         pushes are distributed equally among the 9 non-root nodes of the tree (though
         if it wasn't evenly distributed, that's not an issue w.r.t. the code).
+
+    Returns:
+        Let N be the num of pushes (e.g., N=360), and K the num of nodes (e.g., K=10).
+        X_edges: (K-1,2) typically, this is tree dependent and shows the adjacency matrix.
+        X_force: (N,K,3), the force applied. For each (K,3) slice, just have 1 node
+            with the applied force.
+        X_pos: (N,K,7), node poses before force is applied.
+        Y_pos: (N,K,7), node poses after force is applied.
     """
     def _debug_shapes():
         print(f'  X_edges: {X_edges.shape}')
@@ -348,8 +358,9 @@ def load_npy(data_dir, sim=True, trial_num=-1):
         X_force = np.load(join(data_dir, 'final_F.npy'))
         X_pos = np.load(join(data_dir, 'final_X.npy'))
         Y_pos = np.load(join(data_dir, 'final_Y.npy'))
-        print(f'\nTrial {trial_num}, loaded raw numpy data (SIM). Shapes:')
-        _debug_shapes()
+        if debug:
+            print(f'\nTrial {trial_num}, loaded raw numpy data (SIM). Shapes:')
+            _debug_shapes()
 
         # Truncate node orientations and tranpose to shape (num_graphs, num_nodes, n_features)
         X_pos = X_pos[:, :7, :].transpose((0,2,1))
@@ -375,8 +386,10 @@ def load_npy(data_dir, sim=True, trial_num=-1):
                 X_force = np.load(join(data_dir, 'F_total.npy'))
             X_pos = np.load(join(data_dir, 'X_total.npy'), allow_pickle=True)
             Y_pos = np.load(join(data_dir, 'Y_total.npy'), allow_pickle=True)
-        print(f'\nTrial {trial_num}, loaded raw numpy data (REAL). Shapes:')
-        _debug_shapes()
+
+        if debug:
+            print(f'\nTrial {trial_num}, loaded raw numpy data (REAL). Shapes:')
+            _debug_shapes()
 
         invalid_graphs = []
         for i, graph in enumerate(X_pos):
@@ -397,8 +410,9 @@ def load_npy(data_dir, sim=True, trial_num=-1):
         X_pos = X_pos.reshape(Y_pos.shape[0],Y_pos.shape[1],Y_pos.shape[2])
         X_force = X_force.transpose((0,2,1))
 
-    print('Finished processing numpy data, updated shapes:')
-    _debug_shapes()
+    if debug:
+        print('Finished processing numpy data, updated shapes:')
+        _debug_shapes()
     return X_edges, X_force, X_pos, Y_pos
 
 def _make_dataset(X_edges, X_force, X_pos, Y_pos,
@@ -436,13 +450,28 @@ def shuffle_in_unison(a,b,c):
 
 def make_dataset(X_edges, X_force, X_pos, Y_pos, tree_pts,
                  make_directed=True, prune_augmented=False, rotate_augmented=False):
-    num_graphs = len(X_pos)
+    """After loading this tree's data, form a torch geometric data for train or valid.
+
+    Args:
+        See `load_npy` for details on X_edges, X_force, X_pos, Y_pos. It has information about
+            this tree for multiple pushes, so process each push as its own graph.
+        tree_pts: seems misleading, it's the current dataset index, so if we just use one tree
+            directory then this is always 0 as it is in the real data case.
+        make_directed: see `make_directed_and_prune_argument`.
+        prune_augmented: see `make_directed_and_prune_argument`, False by default.
+        rotate_augmented: presumably for rotation augmenttaion, but False by default.
+
+    Returns:
+        A list of torch_geometric.data.Data structures, one per graph, where each 'graph'
+        is based on a single force.
+    """
     X_edges, X_force, X_pos, Y_pos = make_directed_and_prune_augment(X_edges, X_force, X_pos, Y_pos,
                                                                      make_directed=make_directed,
                                                                      prune_augmented=prune_augmented)
     if rotate_augmented:
         X_edges, X_force, X_pos, Y_pos = rotate_augment(X_edges, X_force, X_pos, Y_pos)
 
+    # Each item in the for loop concerns one tree structure, e.g., node_features.shape = (9,6).
     num_graphs = len(X_pos)
     dataset = []
     for i in range(num_graphs):

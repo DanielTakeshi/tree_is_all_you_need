@@ -13,11 +13,11 @@ def print_loss_by_tree(base, val):
     generates a scatter plot with base displacement and prediction error as its dimenstion. Each point is one push prediction
     """
     zipped = list(zip(base, val))
-    zipped.sort(key=first_value) 
+    zipped.sort(key=first_value)
 
     base = [x for (x,y) in zipped]
     val = [y for (x,y) in zipped]
-    
+
     fig = plt.figure()
     ax = fig.add_subplot(111)
     ax.scatter(base, val, s=4)
@@ -29,6 +29,7 @@ def print_loss_by_tree(base, val):
     plt.close()
     clear_output(wait=True)
 
+
 class Arrow3D(FancyArrowPatch):
     def __init__(self, xs, ys, zs, *args, **kwargs):
         super().__init__((0,0), (0,0), *args, **kwargs)
@@ -38,8 +39,8 @@ class Arrow3D(FancyArrowPatch):
         xs3d, ys3d, zs3d = self._verts3d
         xs, ys, zs = proj3d.proj_transform(xs3d, ys3d, zs3d, self.axes.M)
         self.set_positions((xs[0],ys[0]),(xs[1],ys[1]))
-
         return np.min(zs)
+
 
 def set_axes_equal(ax):
     '''Make axes of 3D plot have equal scale so that spheres appear as spheres,
@@ -70,14 +71,15 @@ def set_axes_equal(ax):
     ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
     return ax
 
+
 def visualize_graph(X, Y, X_0, edge_index, force_node, force):
     force = force.detach().cpu().numpy()
-    
+
     force_vector = force[force_node]/np.linalg.norm(force[force_node])/2
     force_A = X_0.detach().cpu().numpy()[force_node]
     force_B = X_0.detach().cpu().numpy()[force_node] + force_vector*2
-    
-    
+
+
     x_0 = []
     x_edges = []
     y_edges = []
@@ -89,7 +91,7 @@ def visualize_graph(X, Y, X_0, edge_index, force_node, force):
     x_edges = np.array(x_edges)
     y_edges = np.array(y_edges)
 
-    
+
     ax = plt.figure().add_subplot(projection='3d')
     fn = X_0[force_node].detach().cpu().numpy()
     ax.scatter(fn[0], fn[1], fn[2], c='m', s=50)
@@ -99,10 +101,10 @@ def visualize_graph(X, Y, X_0, edge_index, force_node, force):
     ax.add_collection3d(x0_lc)
     ax.add_collection3d(x_lc)
     ax.add_collection3d(y_lc)
-    
+
     arrow_prop_dict = dict(mutation_scale=30, arrowstyle='-|>', color='m', shrinkA=0, shrinkB=0)
-    a = Arrow3D([force_A[0], force_B[0]], 
-                [force_A[1], force_B[1]], 
+    a = Arrow3D([force_A[0], force_B[0]],
+                [force_A[1], force_B[1]],
                 [force_A[2], force_B[2]], **arrow_prop_dict)
     ax.add_artist(a)
     ax.set_xlabel('X')
@@ -111,27 +113,27 @@ def visualize_graph(X, Y, X_0, edge_index, force_node, force):
     ax.set_xlim([-1.0, 1.0])
     ax.set_ylim([-1.0, 1.0])
     ax.set_zlim([0, 2.0])
-    
+
     custom_lines = [Line2D([0], [0], color=[0,0,1,1], lw=2),
                     Line2D([0], [0], color=[1,0,0,1], lw=4),
                     Line2D([0], [0], color=[0,1,0,1], lw=4)]
 
     ax.legend(custom_lines, ['Input', 'Predicted', 'GT'])
-    
-    
+
+
     ax = set_axes_equal(ax)
     plt.tight_layout()
-    plt.show() 
+    plt.show()
 
 
 def make_gif(X, Y, X_0, edge_index, force_node, force, id):
     force = force.detach().cpu().numpy()
-    
+
     force_vector = force[force_node]/np.linalg.norm(force[force_node])/2
     force_A = X_0.detach().cpu().numpy()[force_node]
     force_B = X_0.detach().cpu().numpy()[force_node] + force_vector*2
-    
-    
+
+
     x_0 = []
     x_edges = []
     y_edges = []
@@ -155,10 +157,10 @@ def make_gif(X, Y, X_0, edge_index, force_node, force, id):
     ax.add_collection3d(x0_lc)
     ax.add_collection3d(x_lc)
     ax.add_collection3d(y_lc)
-    
+
     arrow_prop_dict = dict(mutation_scale=30, arrowstyle='-|>', color='m', shrinkA=0, shrinkB=0)
-    a = Arrow3D([force_A[0], force_B[0]], 
-                [force_A[1], force_B[1]], 
+    a = Arrow3D([force_A[0], force_B[0]],
+                [force_A[1], force_B[1]],
                 [force_A[2], force_B[2]], **arrow_prop_dict)
     ax.add_artist(a)
     ax.set_xlabel('X')
@@ -167,14 +169,14 @@ def make_gif(X, Y, X_0, edge_index, force_node, force, id):
     ax.set_xlim([-0.5, 0.5])
     ax.set_ylim([-0.5, 0.5])
     ax.set_zlim([0, 3])
-    
+
     #custom_lines = [Line2D([0], [0], color=[0,0,1,1], lw=2),
     #                Line2D([0], [0], color=[1,0,0,1], lw=4),
     #                Line2D([0], [0], color=[0,1,0,1], lw=4)]
 
     #ax.legend(custom_lines, ['Input', 'GT', 'Predicted'])
-    
-    
+
+
     ax = set_axes_equal(ax)
 
     def init():
