@@ -9,7 +9,18 @@ from torch_geometric.data import Data
 from os.path import join
 
 
-def remove_duplicate_nodes(edges, init_positions, final_positions, X_force):
+def remove_duplicate_nodes(edges, X_force, init_positions, final_positions):
+    """Remove duplicate nodes.
+
+    In practice, for the real data where 0 and 1 are duplicate (see comment below):
+        X_edges (edges here): (9,2) --> (8,2)
+        X_force: (N,10,3) --> (N,9,3), relatively sparse since force is on 1 node.
+        X_pos: (N,10,7) --> (N,9,3)
+        Y_pos: (N,10,7) --> (N,9,3)
+    Also, this removes the quaternions from the init and final node poses.
+
+    Note: I changed the return argument (move X_force second) which I think fixes a bug.
+    """
     tree_representative = init_positions[0]
     tree_representative = np.around(tree_representative, decimals=4)
     duplicates = [(0,1)] #treat 0 and 1 as duplicates, as 0 represents the base_link aka the floor, which should behave like the root
@@ -23,12 +34,13 @@ def remove_duplicate_nodes(edges, init_positions, final_positions, X_force):
     duplicates = list(set(duplicates))
     while len(duplicates) > 0:
         original, duplicate = duplicates.pop()
-        edges, init_positions, final_positions, duplicates, X_force = remove_duplicate(original, duplicate, edges, init_positions, final_positions, duplicates, X_force)
+        edges, init_positions, final_positions, duplicates, X_force = remove_duplicate(
+            original, duplicate, edges, init_positions, final_positions, duplicates, X_force)
         duplicates = list(set(duplicates))
         duplicates = adjust_indexing(duplicates, duplicate)
         edges = adjust_indexing(edges, duplicate)
     edges = np.array(edges)
-    return edges, init_positions[:,:,:3], final_positions[:,:,:3], X_force
+    return edges, X_force, init_positions[:,:,:3], final_positions[:,:,:3]
 
 def has_same_parent(i,j,edges):
     for parent, child in edges:
@@ -452,18 +464,23 @@ def make_dataset(X_edges, X_force, X_pos, Y_pos, tree_pts,
                  make_directed=True, prune_augmented=False, rotate_augmented=False):
     """After loading this tree's data, form a torch geometric data for train or valid.
 
+    Turns numpy inputs into N-length lists (number of graphs), repeating X_edges among these
+    (assuming no pruning, I think). Then for each graph, make it a PyTorch Geometric Data.
+
     Args:
-        See `load_npy` for details on X_edges, X_force, X_pos, Y_pos. It has information about
-            this tree for multiple pushes, so process each push as its own graph.
+        See `load_npy` and `remove_duplicate_nodes` for more on X_edges, X_force, X_pos, Y_pos.
+            Has info about this tree for multiple pushes, so process each push as its own graph.
+            These are numpys, X_edges has shape (8,2), others have (N,9,3), assuming 9 nodes
+            after removing duplicates, then first method puts them in lists.
         tree_pts: seems misleading, it's the current dataset index, so if we just use one tree
-            directory then this is always 0 as it is in the real data case.
-        make_directed: see `make_directed_and_prune_argument`.
-        prune_augmented: see `make_directed_and_prune_argument`, False by default.
+            directory then this is always 0 (with real data).
+        make_directed: see `make_directed_and_prune_augment`.
+        prune_augmented: see `make_directed_and_prune_augment`, False by default.
         rotate_augmented: presumably for rotation augmenttaion, but False by default.
 
     Returns:
         A list of torch_geometric.data.Data structures, one per graph, where each 'graph'
-        is based on a single force.
+        is based on a single force. Positions are normalized with root at (0,0,0).
     """
     X_edges, X_force, X_pos, Y_pos = make_directed_and_prune_augment(X_edges, X_force, X_pos, Y_pos,
                                                                      make_directed=make_directed,
@@ -471,7 +488,7 @@ def make_dataset(X_edges, X_force, X_pos, Y_pos, tree_pts,
     if rotate_augmented:
         X_edges, X_force, X_pos, Y_pos = rotate_augment(X_edges, X_force, X_pos, Y_pos)
 
-    # Each item in the for loop concerns one tree structure, e.g., node_features.shape = (9,6).
+    # Each item in the for loop concerns one tree structure.
     num_graphs = len(X_pos)
     dataset = []
     for i in range(num_graphs):
@@ -479,7 +496,7 @@ def make_dataset(X_edges, X_force, X_pos, Y_pos, tree_pts,
         X_pos[i][:,:3] = X_pos[i][:,:3] - X_pos[i][0,:3]
         Y_pos[i][:,:3] = Y_pos[i][:,:3] - Y_pos[i][0,:3]
 
-        # node-level features: position, force
+        # node-level features: position, force, shape (9,6) for 9 nodes.
         node_features = np.concatenate((X_pos[i][:,:3], X_force[i]), axis=1)
 
         # edge-level features: displacement, distance

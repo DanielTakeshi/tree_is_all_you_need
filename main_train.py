@@ -10,7 +10,7 @@ from model import LearnedSimulator
 import functional
 from tqdm import tqdm
 import argparse
-np.set_printoptions(suppress=True, linewidth=150)
+np.set_printoptions(suppress=True, linewidth=150, edgeitems=10)
 
 
 # NOTE(daniel): naming convention, 'final_{F,X,Y}.npy' equals '{F,X,Y}_total.npy'?
@@ -80,7 +80,7 @@ if __name__ == '__main__':
                     d, params['simulated_dataset'], trial_num=i)
             if params['remove_duplicates']:
                 X_edges, X_force, X_pos, Y_pos = data_processing.remove_duplicate_nodes(
-                        X_edges, X_pos, Y_pos, X_force)
+                        X_edges, X_force, X_pos, Y_pos)
 
             if i < train_val_split:
                 train_dataset += data_processing.make_dataset(X_edges, X_force, X_pos, Y_pos, i_dir,
