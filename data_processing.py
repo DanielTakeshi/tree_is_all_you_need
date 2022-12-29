@@ -321,6 +321,19 @@ def load_npy(data_dir, sim=True, trial_num=-1):
     Data for real saves as f'X_edge_def{num}.npy' where 'num' is passed in as new arg.
     There's also both final_X and X_total conventions, same for Y and the force.
     EXCEPT for trial 1, where the force is saved in another way.
+
+    For real data we should see:
+    - Force with (num_push, 3, num_nodes) BEFORE any transposing, where 3 is due to
+        the xyz force vector, num_nodes=10 for all trials, and num_push varies but
+        is often 320 or 360 except for trial 1 (?) where it's 720, then 640 after
+        processing. After transposing it's (num_push, num_nodes, 3). The xyz force
+        vector is the 'feature.'
+    - The X and Y have shape (num_push, num_nodes, 7) where the 7 is the pose, the
+        3D position and 4D quaternion. These aren't transposed. The X has repeated
+        structure since we have the same starting position, but different pushes.
+    By 'num_push' we mean the number of separate individual pushes by the robot. The
+        pushes are distributed equally among the 9 non-root nodes of the tree (though
+        if it wasn't evenly distributed, that's not an issue w.r.t. the code).
     """
     def _debug_shapes():
         print(f'  X_edges: {X_edges.shape}')

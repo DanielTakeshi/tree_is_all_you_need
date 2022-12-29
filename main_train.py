@@ -10,6 +10,7 @@ from model import LearnedSimulator
 import functional
 from tqdm import tqdm
 import argparse
+np.set_printoptions(suppress=True, linewidth=150)
 
 
 # NOTE(daniel): naming convention, 'final_{F,X,Y}.npy' equals '{F,X,Y}_total.npy'?
