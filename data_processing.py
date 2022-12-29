@@ -57,7 +57,7 @@ def remove_duplicate(original, duplicate, edge_def, init_positions, final_positi
     for idx, force in enumerate(forces):
         if np.linalg.norm(force[duplicate]) != 0:
             forces[idx][original] += forces[idx][duplicate]
-    
+
     forces = np.delete(forces, duplicate, axis=1)
 
     return new_edge_def, init_positions, final_positions, new_duplicates, forces
@@ -291,42 +291,43 @@ def rotate_augment(X_edges, X_force, X_pos, Y_pos, rotate_augment_factor=5, stdd
             theta_y = np.random.normal(0., stddev_y_angle)
             theta_z = np.random.uniform(0., 2. * np.pi)
             R = Rotation.from_euler('zyx', [theta_z, theta_y, theta_x]).as_matrix()
-            
+
             X_R = Rotation.from_quat(X_pos[i][:,3:]).as_matrix()
             Y_R = Rotation.from_quat(X_pos[i][:,3:]).as_matrix()
-            
+
             X_R = R@X_R
             Y_R = R@Y_R
-            
+
             X_q = Rotation.from_matrix(X_R).as_quat()
             Y_q = Rotation.from_matrix(Y_R).as_quat()
-            
+
             X_pos_quat = np.concatenate((np.dot(R, X_pos[i][:,:3].T).T, X_q), axis=1)
             Y_pos_quat = np.concatenate((np.dot(R, Y_pos[i][:,:3].T).T, Y_q), axis=1)
-            
+
             new_X_edges.append(X_edge)
             new_X_force.append(np.dot(R, X_force[i].T).T)
-            
-            
+
+
             new_X_pos.append(X_pos_quat)
             new_Y_pos.append(Y_pos_quat)
-            
+
     return new_X_edges, new_X_force, new_X_pos, new_Y_pos
 
 
 def load_npy(data_dir, sim=True):
     if sim:
-        # Load npy files from dataset_dir. A shortcut to 'sample_1_push' shared folder has been added to 'My Drive' 
+        # Load npy files from dataset_dir. A shortcut to 'sample_1_push' shared folder has been added to 'My Drive'
         #X_stiffness_damping = np.load(os.path.join(data_dir, 'X_coeff_stiff_damp.npy'))
         X_edges = np.load(os.path.join(data_dir, 'X_edge_def.npy'))
-        X_force = np.load(os.path.join(data_dir, 'final_F.npy'))
-        X_pos = np.load(os.path.join(data_dir, 'final_X.npy'))
-        Y_pos = np.load(os.path.join(data_dir, 'final_Y.npy'))
+        X_force = np.load(os.path.join(data_dir, 'X_force_applied.npy'))
+        X_pos = np.load(os.path.join(data_dir, 'X_vertex_init_pose.npy'))
+        Y_pos = np.load(os.path.join(data_dir, 'Y_vertex_final_pos.npy'))
         # Truncate node orientations and tranpose to shape (num_graphs, num_nodes, n_features)
         X_pos = X_pos[:, :7, :].transpose((0,2,1))
         Y_pos = Y_pos[:, :7, :].transpose((0,2,1))
         X_force = X_force.transpose((0,2,1))
     else:
+        # NOTE(daniel): not tested yet.
         X_edges = np.load(os.path.join(data_dir, 'X_edge_def.npy'))
         X_force = np.load(os.path.join(data_dir, 'final_F.npy'))
         X_pos = np.load(os.path.join(data_dir, 'final_X.npy'), allow_pickle=True)
@@ -341,30 +342,30 @@ def load_npy(data_dir, sim=True):
         X_force = np.delete(X_force, invalid_graphs, axis=0)
         X_pos = np.delete(X_pos, invalid_graphs, axis=0)
         Y_pos = np.delete(Y_pos, invalid_graphs, axis=0)
-        
+
         X_pos_list = []
         for graph in X_pos:
             for node in graph:
                 for feature in node:
                     X_pos_list.append(feature)
         X_pos = np.array(X_pos_list)
-        X_pos = X_pos.reshape(Y_pos.shape[0],Y_pos.shape[1],Y_pos.shape[2]) 
+        X_pos = X_pos.reshape(Y_pos.shape[0],Y_pos.shape[1],Y_pos.shape[2])
         X_force = X_force.transpose((0,2,1))
     return X_edges, X_force, X_pos, Y_pos
 
-def _make_dataset(X_edges, X_force, X_pos, Y_pos, 
+def _make_dataset(X_edges, X_force, X_pos, Y_pos,
                  make_directed=True, prune_augmented=False, rotate_augmented=False):
     num_graphs = len(X_pos)
     X_edges, X_force, X_pos, Y_pos = make_directed_and_prune_augment(X_edges, X_force, X_pos, Y_pos,
-                                                                     make_directed=make_directed, 
+                                                                     make_directed=make_directed,
                                                                      prune_augmented=prune_augmented)
     if rotate_augmented:
         X_edges, X_force, X_pos, Y_pos = rotate_augment(X_edges, X_force, X_pos, Y_pos)
 
     num_graphs = len(X_pos)
     dataset = []
-    for i in range(num_graphs): 
-        # Combine all node features: [position, force, stiffness] with shape (num_nodes, xyz(3)+force(3)+stiffness_damping(4)) 
+    for i in range(num_graphs):
+        # Combine all node features: [position, force, stiffness] with shape (num_nodes, xyz(3)+force(3)+stiffness_damping(4))
         # stiffness damping is (4) because of bending stiffness/damping and torsional stiffness/damping
         root_feature = np.zeros((len(X_pos[i]), 1))
         #root_feature[0, 0] = 1.0
@@ -389,32 +390,32 @@ def make_dataset(X_edges, X_force, X_pos, Y_pos, tree_pts,
                  make_directed=True, prune_augmented=False, rotate_augmented=False):
     num_graphs = len(X_pos)
     X_edges, X_force, X_pos, Y_pos = make_directed_and_prune_augment(X_edges, X_force, X_pos, Y_pos,
-                                                                     make_directed=make_directed, 
+                                                                     make_directed=make_directed,
                                                                      prune_augmented=prune_augmented)
     if rotate_augmented:
         X_edges, X_force, X_pos, Y_pos = rotate_augment(X_edges, X_force, X_pos, Y_pos)
-    
+
     num_graphs = len(X_pos)
     dataset = []
-    for i in range(num_graphs): 
+    for i in range(num_graphs):
         # Normalize tree by making root node [0,0,0]
-        X_pos[i][:,:3] = X_pos[i][:,:3] - X_pos[i][0,:3] 
-        Y_pos[i][:,:3] = Y_pos[i][:,:3] - Y_pos[i][0,:3] 
+        X_pos[i][:,:3] = X_pos[i][:,:3] - X_pos[i][0,:3]
+        Y_pos[i][:,:3] = Y_pos[i][:,:3] - Y_pos[i][0,:3]
 
         # node-level features: position, force
         node_features = np.concatenate((X_pos[i][:,:3], X_force[i]), axis=1)
-        
+
         # edge-level features: displacement, distance
         edge_features = []
         for edge in X_edges[i]:
             displacement = X_pos[i][edge[1],:3] - X_pos[i][edge[0],:3]
             distance = np.linalg.norm(displacement)
-            edge_features.append(np.concatenate((displacement, [distance]))) 
+            edge_features.append(np.concatenate((displacement, [distance])))
         edge_features = np.asarray(edge_features)
         # ground truth: final position
         final_positions = Y_pos[i][:,:3]
 
-        # Combine all node features: [position, force, stiffness] with shape (num_nodes, xyz(3)+force(3)+stiffness_damping(4)) 
+        # Combine all node features: [position, force, stiffness] with shape (num_nodes, xyz(3)+force(3)+stiffness_damping(4))
         # stiffness damping is (4) because of bending stiffness/damping and torsional stiffness/damping
         #root_feature = np.zeros((len(X_pos[i]), 1))
         #root_feature[0, 0] = 1.0
@@ -422,7 +423,7 @@ def make_dataset(X_edges, X_force, X_pos, Y_pos, tree_pts,
         #X_data = np.concatenate((X_pos[i], X_force[i]), axis=1) # TODO: Add stiffness damping features later
 
         edge_index = torch.tensor(X_edges[i].T, dtype=torch.long)
-        edge_attr = torch.tensor(edge_features, dtype=torch.float) 
+        edge_attr = torch.tensor(edge_features, dtype=torch.float)
         x = torch.tensor(node_features, dtype=torch.float)
         y = torch.tensor(final_positions, dtype=torch.float)
         #force_node = np.argwhere(np.sum(np.abs(X_force[i]), axis=1))[0,0]
