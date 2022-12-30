@@ -23,7 +23,7 @@ def validate(model, criterion, val_loader, epoch, device):
         batch.to(device)
         out = model(batch)
         running_l2_norm += torch.sum(torch.norm(out-batch.y, dim=1)).item()
-        num_graphs+=out.size()[0]
+        num_graphs += out.size()[0]
     val_loss = running_l2_norm/num_graphs
     return val_loss
 
@@ -78,12 +78,12 @@ def test(model, test_loader, device, visualize=False):
         running_l2_norm_base += base
         num_graphs+=out.size()[0]
         if idx < 10 and visualize:
-            visualization.visualize_graph(out[:,:3], 
-                            y[:,:3], 
-                            x[:,:3], 
-                            batch.edge_index, batch.force_node[0], 
+            visualization.visualize_graph(out[:,:3],
+                            y[:,:3],
+                            x[:,:3],
+                            batch.edge_index, batch.force_node[0],
                             force, results_path+"prediction_example%s"%idx)
-        idx += 1  
+        idx += 1
 
     l2_norm_by_node = []
     l2_norm_base_by_node = []
@@ -138,10 +138,10 @@ def make_gif(model, test_loader, device):
         out = model(batch)
         running_l2_norm += torch.sum(torch.norm(out[:,:3]-batch.y[:,:3], dim=1))
         num_graphs+=out.size()[0]
-        visualization.make_gif(out[:,:3], 
-                        batch.y[:,:3], 
-                        batch.x[:,:3], 
-                        batch.edge_index, batch.force_node[0], 
+        visualization.make_gif(out[:,:3],
+                        batch.y[:,:3],
+                        batch.x[:,:3],
+                        batch.edge_index, batch.force_node[0],
                         batch.x[:,-3:], i)
     l2_norm = running_l2_norm/num_graphs
     print('Average node distance error: {}'.format(l2_norm))

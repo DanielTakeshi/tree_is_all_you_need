@@ -168,7 +168,7 @@ class LearnedSimulator(torch.nn.Module):
         #node_feature = torch.cat((self.embed_type(data.x), data.pos), dim=-1)
         node_feature = self.node_in(data.x)
         edge_feature = self.edge_in(data.edge_attr)
-        # stack of GNN layers
+        # stack of GNN layers -- shapes of node_feature and edge_feature do not change
         for i in range(self.n_mp_layers):
             node_feature, edge_feature = self.layers[i](node_feature, data.edge_index, edge_feature=edge_feature)
         # post-processing
