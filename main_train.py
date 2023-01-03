@@ -1,3 +1,4 @@
+"""Training code. Works so far on the real dataset."""
 import os
 import numpy as np
 import random
@@ -15,6 +16,8 @@ np.set_printoptions(suppress=True, linewidth=150, edgeitems=10)
 
 # NOTE(daniel): naming convention, 'final_{F,X,Y}.npy' equals '{F,X,Y}_total.npy'?
 # The first trial has `F_vector_final.npy`. The 'X_edge_def.npy' has an extra number.
+# Train dataset size: 3000
+# Validation dataset size: 640
 PARAMS_REAL = {
     'run_name': 'real_entire_dataset',
     'dataset_dir': ['data/tree_dataset/trial'],
@@ -29,6 +32,7 @@ PARAMS_REAL = {
 
 
 # NOTE(daniel): just test 10Nodes_by_tree, not 20Nodes_by_tree.
+# Not yet tested, I don't think this will work due to some code changes.
 PARAMS_SIM = {
     'run_name': 'sim_entire_dataset',
     'dataset_dir': ['data/10Nodes_by_tree/trial'],

@@ -1,6 +1,7 @@
 import torch
 import visualization
 
+
 def train(model, optimizer, criterion, train_loader, epoch, device):
     model.train()
     running_loss = 0
@@ -15,6 +16,7 @@ def train(model, optimizer, criterion, train_loader, epoch, device):
     train_loss = running_loss/len(train_loader)
     return train_loss
 
+
 def validate(model, criterion, val_loader, epoch, device):
     model.eval()
     running_l2_norm = 0
@@ -26,6 +28,7 @@ def validate(model, criterion, val_loader, epoch, device):
         num_graphs += out.size()[0]
     val_loss = running_l2_norm/num_graphs
     return val_loss
+
 
 def test(model, test_loader, device, visualize=False):
     model.eval()
@@ -129,7 +132,9 @@ def test(model, test_loader, device, visualize=False):
 
     return l2_norm, l2_base
 
+
 def make_gif(model, test_loader, device):
+    """NOTE(daniel): assumes each `batch` has a force_node."""
     model.eval()
     running_l2_norm = 0
     num_graphs = 0
@@ -138,10 +143,14 @@ def make_gif(model, test_loader, device):
         out = model(batch)
         running_l2_norm += torch.sum(torch.norm(out[:,:3]-batch.y[:,:3], dim=1))
         num_graphs+=out.size()[0]
-        visualization.make_gif(out[:,:3],
-                        batch.y[:,:3],
-                        batch.x[:,:3],
-                        batch.edge_index, batch.force_node[0],
-                        batch.x[:,-3:], i)
+        visualization.make_gif(
+            X=out[:,:3],
+            Y=batch.y[:,:3],
+            X_0=batch.x[:,:3],
+            edge_index=batch.edge_index,
+            force_node=batch.force_node[0],
+            force=batch.x[:,-3:],
+            id=i
+        )
     l2_norm = running_l2_norm/num_graphs
     print('Average node distance error: {}'.format(l2_norm))

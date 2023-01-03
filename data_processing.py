@@ -437,34 +437,6 @@ def load_npy(data_dir, sim=True, trial_num=-1, debug=False):
     return X_edges, X_force, X_pos, Y_pos
 
 
-def _make_dataset(X_edges, X_force, X_pos, Y_pos,
-                 make_directed=True, prune_augmented=False, rotate_augmented=False):
-    num_graphs = len(X_pos)
-    X_edges, X_force, X_pos, Y_pos = make_directed_and_prune_augment(X_edges, X_force, X_pos, Y_pos,
-                                                                     make_directed=make_directed,
-                                                                     prune_augmented=prune_augmented)
-    if rotate_augmented:
-        X_edges, X_force, X_pos, Y_pos = rotate_augment(X_edges, X_force, X_pos, Y_pos)
-
-    num_graphs = len(X_pos)
-    dataset = []
-    for i in range(num_graphs):
-        # Combine all node features: [position, force, stiffness] with shape (num_nodes, xyz(3)+force(3)+stiffness_damping(4))
-        # stiffness damping is (4) because of bending stiffness/damping and torsional stiffness/damping
-        root_feature = np.zeros((len(X_pos[i]), 1))
-        #root_feature[0, 0] = 1.0
-        #X_data = np.concatenate((X_pos[i], X_force[i], root_feature), axis=1) # TODO: Add stiffness damping features later
-        X_data = np.concatenate((X_pos[i], X_force[i]), axis=1) # TODO: Add stiffness damping features later
-
-        edge_index = torch.tensor(X_edges[i].T, dtype=torch.long)
-        x = torch.tensor(X_data, dtype=torch.float)
-        y = torch.tensor(Y_pos[i], dtype=torch.float)
-        force_node = np.argwhere(np.sum(np.abs(X_force[i]), axis=1))[0,0]
-        graph_instance = Data(x=x, edge_index=edge_index, y=y, force_node=force_node)
-        dataset.append(graph_instance)
-    return dataset
-
-
 def shuffle_in_unison(a,b,c):
     assert len(a)==len(b)==len(c)
     order = np.arange(len(a))
@@ -472,12 +444,13 @@ def shuffle_in_unison(a,b,c):
     return a[order],b[order],c[order]
 
 
-def make_dataset(X_edges, X_force, X_pos, Y_pos, tree_pts,
+def make_dataset(X_edges, X_force, X_pos, Y_pos, tree_pts=0,
                  make_directed=True, prune_augmented=False, rotate_augmented=False):
     """After loading this tree's data, form a torch geometric data for train or valid.
 
     Turns numpy inputs into N-length lists (number of graphs), repeating X_edges among these
     (assuming no pruning, I think). Then for each graph, make it a PyTorch Geometric Data.
+    I had to add the `force_node` to make data visualization work.
 
     Args:
         See `load_npy` and `remove_duplicate_nodes` for more on X_edges, X_force, X_pos, Y_pos.
@@ -485,7 +458,8 @@ def make_dataset(X_edges, X_force, X_pos, Y_pos, tree_pts,
             These are numpys, X_edges has shape (8,2), others have (N,9,3), assuming 9 nodes
             after removing duplicates, then first method puts them in lists.
         tree_pts: seems misleading, it's the current dataset index, so if we just use one tree
-            directory then this is always 0 (with real data).
+            directory then this is always 0 (with real data). Also we don't even use this? The
+            GNN forward pass never uses `data.tree_pts`! I'll just set it to 0 by default.
         make_directed: see `make_directed_and_prune_augment`.
         prune_augmented: see `make_directed_and_prune_augment`, False by default.
         rotate_augmented: presumably for rotation augmenttaion, but False by default.
@@ -494,15 +468,16 @@ def make_dataset(X_edges, X_force, X_pos, Y_pos, tree_pts,
         A list of torch_geometric.data.Data structures, one per graph, where each 'graph'
         is based on a single force. Positions are normalized with root at (0,0,0).
     """
-    X_edges, X_force, X_pos, Y_pos = make_directed_and_prune_augment(X_edges, X_force, X_pos, Y_pos,
-                                                                     make_directed=make_directed,
-                                                                     prune_augmented=prune_augmented)
+    X_edges, X_force, X_pos, Y_pos = make_directed_and_prune_augment(
+        X_edges, X_force, X_pos, Y_pos, make_directed=make_directed, prune_augmented=prune_augmented
+    )
     if rotate_augmented:
         X_edges, X_force, X_pos, Y_pos = rotate_augment(X_edges, X_force, X_pos, Y_pos)
 
     # Each item in the for loop concerns one tree structure.
     num_graphs = len(X_pos)
     dataset = []
+
     for i in range(num_graphs):
         # Normalize tree by making root node [0,0,0]
         X_pos[i][:,:3] = X_pos[i][:,:3] - X_pos[i][0,:3]
@@ -518,21 +493,20 @@ def make_dataset(X_edges, X_force, X_pos, Y_pos, tree_pts,
             distance = np.linalg.norm(displacement)
             edge_features.append(np.concatenate((displacement, [distance])))
         edge_features = np.asarray(edge_features)
+
         # ground truth: final position
         final_positions = Y_pos[i][:,:3]
 
-        # Combine all node features: [position, force, stiffness] with shape (num_nodes, xyz(3)+force(3)+stiffness_damping(4))
-        # stiffness damping is (4) because of bending stiffness/damping and torsional stiffness/damping
-        #root_feature = np.zeros((len(X_pos[i]), 1))
-        #root_feature[0, 0] = 1.0
-        #X_data = np.concatenate((X_pos[i], X_force[i], root_feature), axis=1) # TODO: Add stiffness damping features later
-        #X_data = np.concatenate((X_pos[i], X_force[i]), axis=1) # TODO: Add stiffness damping features later
+        # For real data, X_force[i].shape == (9,3); picks the index of which node has force.
+        force_node = np.argwhere(np.sum(np.abs(X_force[i]), axis=1))[0,0]
 
+        # Construct graph instance.
         edge_index = torch.tensor(X_edges[i].T, dtype=torch.long)
         edge_attr = torch.tensor(edge_features, dtype=torch.float)
         x = torch.tensor(node_features, dtype=torch.float)
         y = torch.tensor(final_positions, dtype=torch.float)
-        #force_node = np.argwhere(np.sum(np.abs(X_force[i]), axis=1))[0,0]
-        graph_instance = Data(x=x, edge_index=edge_index, y=y, edge_attr=edge_attr, tree_pts=tree_pts)
+        graph_instance = Data(
+            x=x, edge_index=edge_index, y=y, edge_attr=edge_attr, tree_pts=tree_pts, force_node=force_node
+        )
         dataset.append(graph_instance)
     return dataset

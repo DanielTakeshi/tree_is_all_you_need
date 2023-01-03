@@ -1,6 +1,7 @@
 # Daniel
 data/
 output/
+*.pt
 
 
 
