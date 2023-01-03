@@ -30,6 +30,7 @@ def print_loss_by_tree(base, val):
     clear_output(wait=True)
 
 
+# Possibly from: https://stackoverflow.com/questions/22867620/
 class Arrow3D(FancyArrowPatch):
     def __init__(self, xs, ys, zs, *args, **kwargs):
         super().__init__((0,0), (0,0), *args, **kwargs)
@@ -127,13 +128,34 @@ def visualize_graph(X, Y, X_0, edge_index, force_node, force):
 
 
 def make_gif(X, Y, X_0, edge_index, force_node, force, id):
+    """Make an animation. Why is it not working now?
+
+    I'm getting confused about `edge_index`, why is it not what I'd expect?
+
+    https://jakevdp.github.io/blog/2012/08/18/matplotlib-animation-tutorial/
+
+    # This will work for a scatter plot, but here we want connected lines.
+    ax = plt.figure().add_subplot(projection='3d')
+    ax.scatter(x_edges[:,:,0], x_edges[:,:,1], x_edges[:,:,2], color='b')
+    ax.scatter(y_edges[:,:,0], y_edges[:,:,1], y_edges[:,:,2], color='r')
+
+    Parameters
+    ----------
+    X: the predictions from the trained model.
+    Y: the ground-truth node positions (root-normalized).
+    X_0: the initial node positions (root-normalized).
+    force_node: node index to which force was applied.
+    force: (N,3)-shaped force array, only row at index `force_node` should be nonzero.
+    id: integer ID value, for the current batch item (note: batch size is 1).
+    """
     force = force.detach().cpu().numpy()
 
-    force_vector = force[force_node]/np.linalg.norm(force[force_node])/2
+    # Create a force vector. TODO(daniel): this is normalized but can we downscale?
+    force_vector = force[force_node] / np.linalg.norm(force[force_node]) / 2  # why div 2 ?
     force_A = X_0.detach().cpu().numpy()[force_node]
-    force_B = X_0.detach().cpu().numpy()[force_node] + force_vector*2
+    force_B = X_0.detach().cpu().numpy()[force_node] + force_vector * 1.0  # used to be 2.0
 
-
+    # NOTE(daniel): extract edge structure of the tree before and after force.
     x_0 = []
     x_edges = []
     y_edges = []
@@ -142,51 +164,71 @@ def make_gif(X, Y, X_0, edge_index, force_node, force, id):
         x_edges.append([X[edge[0]].detach().cpu().numpy(), X[edge[1]].detach().cpu().numpy()])
         y_edges.append([Y[edge[0]].detach().cpu().numpy(), Y[edge[1]].detach().cpu().numpy()])
     x_0 = np.array(x_0)
+
+    # x_edges, y_edges are (num_edges, 2, 3) containing positions of their vertices.
+    # TODO(daniel): why are there more edges than I'd expect?
     x_edges = np.array(x_edges)
     y_edges = np.array(y_edges)
 
+    # Debugging.
+    print(X_0)
+    print(edge_index)
+    print(x_0.shape)
+    print(x_edges.shape)
+    print(y_edges.shape)
 
     fig = plt.figure()
-    ax = Axes3D(fig)
-    #ax = plt.figure().add_subplot(projection='3d')
-    fn = X_0[force_node].detach().cpu().numpy()
-    ax.scatter(fn[0], fn[1], fn[2], c='m', s=50)
-    x0_lc = Line3DCollection(x_0, colors=[0,0,1,1], linewidths=1)
-    x_lc = Line3DCollection(x_edges, colors=[1,0,0,1], linewidths=5)
-    y_lc = Line3DCollection(y_edges, colors=[0,1,0,1], linewidths=5)
+
+    # NOTE(daniel): showing up, finally.
+    #ax = Axes3D(fig)
+    # https://stackoverflow.com/questions/67095247/gca-and-latest-version-of-matplotlib
+    #ax = fig.gca(projection='3d')
+    ax = fig.add_subplot(projection='3d')
+    #fn = X_0[force_node].detach().cpu().numpy()  # causes axes to be crazy?
+    #ax.scatter(fn[0], fn[1], fn[2], c='m', s=50) # causes axes to be crazy?
+    x0_lc = Line3DCollection(x_0,     colors=[0,0,1,1], linewidths=1)
+    x_lc  = Line3DCollection(x_edges, colors=[1,0,0,1], linewidths=5)
+    y_lc  = Line3DCollection(y_edges, colors=[0,1,0,1], linewidths=5)
     ax.add_collection3d(x0_lc)
     ax.add_collection3d(x_lc)
     ax.add_collection3d(y_lc)
 
+    # Must show the force as an arrow.
     arrow_prop_dict = dict(mutation_scale=30, arrowstyle='-|>', color='m', shrinkA=0, shrinkB=0)
     a = Arrow3D([force_A[0], force_B[0]],
                 [force_A[1], force_B[1]],
                 [force_A[2], force_B[2]], **arrow_prop_dict)
     ax.add_artist(a)
+
+    # NOTE(daniel): these seem to be the ranges used in their GitHub animation.
+    # But I am seeing that the scale is quite off, is it due to normalization?
+    # The root is set at (0,0,0), maybe let's just start from there?
+    # We should dynamically adjust the ranges.
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
-    ax.set_xlim([-0.5, 0.5])
-    ax.set_ylim([-0.5, 0.5])
-    ax.set_zlim([0, 3])
+    ax.set_xlim([-0.4, 0.4])
+    ax.set_ylim([-0.4, 0.4])
+    ax.set_zlim([0.0, 0.8])
 
     #custom_lines = [Line2D([0], [0], color=[0,0,1,1], lw=2),
     #                Line2D([0], [0], color=[1,0,0,1], lw=4),
     #                Line2D([0], [0], color=[0,1,0,1], lw=4)]
-
     #ax.legend(custom_lines, ['Input', 'GT', 'Predicted'])
-
-
     ax = set_axes_equal(ax)
 
+    # initialization function: plot the background of each frame
     def init():
         return fig,
 
+    # animation function.  This is called sequentially
     def animate(i):
         ax.view_init(elev=10., azim=i)
         return fig,
 
-    # Animate
+    # call the animator.  blit=True means only re-draw the parts that have changed.
+    anim_file = f'output/{str(id).zfill(3)}.gif'
     anim = animation.FuncAnimation(fig, animate, init_func=init,
-                                frames=360, interval=20, blit=True)
-    anim.save('output/{}.gif'.format(id))
+                                   frames=360, interval=20, blit=True)
+    anim.save(anim_file, fps=30)
+    print(f'Saved animation: {anim_file}')

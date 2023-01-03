@@ -23,6 +23,7 @@ if __name__ == '__main__':
     random.seed(params['seed'])
 
     # TODO(daniel): why are we not saving X_edges to a list?
+    # This seems incorrect to me, need to fix how this script is used.
     X_force_list = []
     X_pos_list = []
     Y_pos_list = []
@@ -33,6 +34,7 @@ if __name__ == '__main__':
         X_force_list.append(X_force)
         X_pos_list.append(X_pos)
         Y_pos_list.append(Y_pos)
+        print(f'On tree {i}, X_edges.T:\n{X_edges.T}')
     X_force_arr = np.concatenate(X_force_list)
     X_pos_arr = np.concatenate(X_pos_list)
     Y_pos_arr = np.concatenate(Y_pos_list)

@@ -142,7 +142,7 @@ def make_gif(model, test_loader, device):
         batch.to(device)
         out = model(batch)
         running_l2_norm += torch.sum(torch.norm(out[:,:3]-batch.y[:,:3], dim=1))
-        num_graphs+=out.size()[0]
+        num_graphs += out.size()[0]
         visualization.make_gif(
             X=out[:,:3],
             Y=batch.y[:,:3],
