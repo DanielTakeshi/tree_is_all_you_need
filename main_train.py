@@ -117,18 +117,19 @@ if __name__ == '__main__':
                 best_model = copy.deepcopy(model)
                 torch.save(best_model.state_dict(), os.path.join(output_dir, 'best_model.pt'))
             scheduler.step(best_loss)
-            print('Epoch {} | Train Loss: {} | Val Loss: {} | LR: {}'.format(epoch, train_loss, val_loss, scheduler._last_lr))
+            print('Epoch {} | Train Loss: {:0.5f} | Val Loss: {:0.5f} | LR: {}'.format(
+                    str(epoch).zfill(3), train_loss, val_loss, scheduler._last_lr))
             train_loss_history.append(train_loss)
             val_loss_history.append(val_loss)
             with open(os.path.join(output_dir, 'trajectory.txt'), 'a') as file1:
                 file1.write('{} {} {} {}\n'.format(epoch, train_loss, val_loss, scheduler._last_lr))
-
         ax.plot(train_loss_history, 'r', label='train')
         ax.plot(val_loss_history, 'b', label='validation')
         ax.legend(loc="upper right")
         plt.show()
         torch.save(best_model.state_dict(), os.path.join(output_dir, 'best_model.pt'))
     except KeyboardInterrupt:
+        # If I interrupt the keyboard, it will show this plot of losses.
         ax.plot(train_loss_history, 'r', label='train')
         ax.plot(val_loss_history, 'b', label='validation')
         ax.legend(loc="upper right")

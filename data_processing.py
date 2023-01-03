@@ -42,6 +42,7 @@ def remove_duplicate_nodes(edges, X_force, init_positions, final_positions):
     edges = np.array(edges)
     return edges, X_force, init_positions[:,:,:3], final_positions[:,:,:3]
 
+
 def has_same_parent(i,j,edges):
     for parent, child in edges:
         if child == i:
@@ -49,6 +50,7 @@ def has_same_parent(i,j,edges):
         if child == j:
             parent_j = parent
     return parent_i == parent_j
+
 
 def remove_duplicate(original, duplicate, edge_def, init_positions, final_positions, duplicates, forces):
     init_positions = np.delete(init_positions, duplicate, axis=1)
@@ -76,6 +78,7 @@ def remove_duplicate(original, duplicate, edge_def, init_positions, final_positi
 
     return new_edge_def, init_positions, final_positions, new_duplicates, forces
 
+
 def adjust_indexing(tuple_list, deleted_index):
     new_tuple_list = []
     for i, j in tuple_list:
@@ -85,6 +88,7 @@ def adjust_indexing(tuple_list, deleted_index):
             j = j-1
         new_tuple_list.append((i,j))
     return new_tuple_list
+
 
 def get_topological_order(neighbor_dict, root=0):
     """
@@ -106,6 +110,7 @@ def get_topological_order(neighbor_dict, root=0):
                 queue.put(tgt)
     return topological_order
 
+
 def get_parents(neighbor_dict, root = 0):
     """
     Find the parents of each node in the tree.
@@ -125,6 +130,7 @@ def get_parents(neighbor_dict, root = 0):
                 queue.put(tgt)
     return parents
 
+
 def get_trunk(parents, leaf, root=0):
     """
     Get the trunk of the tree from leaf to root.
@@ -139,6 +145,7 @@ def get_trunk(parents, leaf, root=0):
         trunk.add((tgt, parents[tgt]))
         tgt = parents[tgt]
     return trunk
+
 
 def make_directed_and_prune_augment(X_edges, X_force, X_pos, Y_pos, make_directed=True, prune_augmented=True):
     """Make the dataset edge connections directed and augment the dataset by random pruning.
@@ -278,6 +285,7 @@ def make_directed_and_prune_augment(X_edges, X_force, X_pos, Y_pos, make_directe
                 new_Y_pos.append(Y_pos[i][reindex_mapping])
     return new_X_edges, new_X_force, new_X_pos, new_Y_pos
 
+
 def rotate_augment(X_edges, X_force, X_pos, Y_pos, rotate_augment_factor=5, stddev_x_angle=0.2, stddev_y_angle=0.2):
     """
     Augment the graph by random rotation.
@@ -328,6 +336,7 @@ def rotate_augment(X_edges, X_force, X_pos, Y_pos, rotate_augment_factor=5, stdd
             new_Y_pos.append(Y_pos_quat)
 
     return new_X_edges, new_X_force, new_X_pos, new_Y_pos
+
 
 def load_npy(data_dir, sim=True, trial_num=-1, debug=False):
     """Loads the numpy datasets, now with updated dataset from the Google Site.
@@ -427,6 +436,7 @@ def load_npy(data_dir, sim=True, trial_num=-1, debug=False):
         _debug_shapes()
     return X_edges, X_force, X_pos, Y_pos
 
+
 def _make_dataset(X_edges, X_force, X_pos, Y_pos,
                  make_directed=True, prune_augmented=False, rotate_augmented=False):
     num_graphs = len(X_pos)
@@ -454,11 +464,13 @@ def _make_dataset(X_edges, X_force, X_pos, Y_pos,
         dataset.append(graph_instance)
     return dataset
 
+
 def shuffle_in_unison(a,b,c):
     assert len(a)==len(b)==len(c)
     order = np.arange(len(a))
     np.random.shuffle(order)
     return a[order],b[order],c[order]
+
 
 def make_dataset(X_edges, X_force, X_pos, Y_pos, tree_pts,
                  make_directed=True, prune_augmented=False, rotate_augmented=False):
