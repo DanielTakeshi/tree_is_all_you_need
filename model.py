@@ -141,14 +141,9 @@ class LearnedSimulator(torch.nn.Module):
         self,
         hidden_size=128,
         n_mp_layers=10, # number of GNN layers
-        #num_particle_types=9,
-        #particle_type_dim=16, # embedding dimension of particle types
         dim=3, # dimension of the world, typical 2D or 3D
-        #window_size=5, # the model looks into W frames before the frame to be predicted
     ):
         super().__init__()
-        #self.window_size = window_size
-        #self.embed_type = torch.nn.Embedding(num_particle_types, particle_type_dim)
         self.node_in = MLP(dim * 2, hidden_size, hidden_size, 3)
         self.edge_in = MLP(dim + 1, hidden_size, hidden_size, 3)
         self.node_out = MLP(hidden_size, hidden_size, dim, 3, layernorm=False)
@@ -157,23 +152,37 @@ class LearnedSimulator(torch.nn.Module):
             hidden_size, 3
         ) for _ in range(n_mp_layers)])
 
-        #self.reset_parameters()
-
-    #def reset_parameters(self):
-    #    torch.nn.init.xavier_uniform_(self.embed_type.weight)
-
     def forward(self, data):
-        # pre-processing
-        # node feature: combine categorial feature data.x and contiguous feature data.pos.
-        #node_feature = torch.cat((self.embed_type(data.x), data.pos), dim=-1)
+        """Forward pass through GNS.
+
+        To understand the forward pass, use:
+            N = number of nodes per graph, which is 9 for real data.
+            B = batch size, or the number of graphs, which is 512 by default.
+
+        Recall that for _each_ graph, the input is (9,6) since we have 6 features
+        per node (3D position and 3D force vector). However, each graph has slightly
+        different edge counts, so the size of `data.edge_attr` may vary.
+        """
+
+        # converts each node (in each graph) into 128-dim features.
+        # data.x: [512*9,6] or [4608,6] ==> [4608,128]
         node_feature = self.node_in(data.x)
+
+        # converts each edge (in each graph) into 128-dim features.
+        # data.x: [4549, 4] ==> [4549, 128]
         edge_feature = self.edge_in(data.edge_attr)
+
         # stack of GNN layers -- shapes of node_feature and edge_feature do not change
         for i in range(self.n_mp_layers):
-            node_feature, edge_feature = self.layers[i](node_feature, data.edge_index, edge_feature=edge_feature)
-        # post-processing
+            node_feature, edge_feature = self.layers[i](
+                node_feature, data.edge_index, edge_feature=edge_feature
+            )
+
+        # post-processing, converts each node (in each graph) to 3D output.
+        # node_feature: [4608, 128] ==> out: [4608,3]
         out = self.node_out(node_feature)
         return out
+
 
 if __name__=='__main__':
     simulator = LearnedSimulator()
