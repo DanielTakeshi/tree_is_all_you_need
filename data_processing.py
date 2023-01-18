@@ -508,5 +508,8 @@ def make_dataset(X_edges, X_force, X_pos, Y_pos, tree_pts=0,
         graph_instance = Data(
             x=x, edge_index=edge_index, y=y, edge_attr=edge_attr, tree_pts=tree_pts, force_node=force_node
         )
+        # NOTE(daniel): does not work even though PyG docs suggest it will?
+        # graph_instance.validate(raise_on_error=True)
+        # print(graph_instance.is_directed())  # NOTE(daniel): returns True
         dataset.append(graph_instance)
     return dataset

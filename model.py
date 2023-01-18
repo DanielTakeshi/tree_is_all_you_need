@@ -162,6 +162,24 @@ class LearnedSimulator(torch.nn.Module):
         Recall that for _each_ graph, the input is (9,6) since we have 6 features
         per node (3D position and 3D force vector). However, each graph has slightly
         different edge counts, so the size of `data.edge_attr` may vary.
+
+        Parameters
+        ----------
+        data: of type `DataBatch`. See this for more:
+        https://pytorch-geometric.readthedocs.io/en/latest/notes/introduction.html
+        TL;DR `data.x` means node features. We may _start_ or _initialize_ data.x
+        with features we know, in our case, position and force info. But then later
+        the features are just stuff produced from intermediate layers in the GNN.
+        Actually `data.pos` is probably where node positions should appear but the
+        data attributes are optional (we don't _need_ `data.pos`...) and it's prob
+        easier just to stuff positions in `data.x`.
+
+        Returns
+        -------
+        PER-NODE OUTPUT, so it is not one 'vector' output per graph but one vector
+        output per _node_ in a graph (in our case, the vector is the predicted
+        position of each node). If we want to compress information among all nodes,
+        we can use the `scatter` function in PyG.
         """
 
         # converts each node (in each graph) into 128-dim features.
